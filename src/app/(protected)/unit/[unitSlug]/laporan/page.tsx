@@ -8,8 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     Dialog,
@@ -44,28 +42,16 @@ import {
     QrCode,
     Users,
     BarChart2,
-    PlusCircle,
     Loader2,
-    Car,
-    Scissors,
-    Gamepad2,
-    Dumbbell,
     Store,
-    UtensilsCrossed,
     Utensils,
     Coffee,
-    Shirt,
     AlertCircle,
     ShieldX,
-    ImagePlus,
-    X,
     FileImage,
     Send,
-    Award,
     CreditCard,
-    Eye,
-    Search,
-    User,
+    Eye
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks";
@@ -73,136 +59,13 @@ import { isSameUnit } from "@/lib/unit-aliases";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SortableHeader } from "@/components/ui/sortable-header";
+import { UNIT_LABELS, PERIODS, METHOD_LABEL, EXPENSE_CATEGORY_BADGE, OPS_PAYMENT_METHODS, formatUnitName } from "./_constants";
+import { buildLaporanExcel } from "./_lib/export-excel";
+import { ExpenseDialog, IncomeDialog, DeleteConfirmDialog, TransactionDetailDialog } from "./_components/laporan-dialogs";
+import type { LaporanData, LaporanTransaction, OperationalExpense } from "./_types";
 
-// ── Unit label map ──────────────────────────────────────────────────────────
-const UNIT_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
-    cuci_mobil: { label: "Cuci Mobil & Motor", icon: Car },
-    barbershop: { label: "Barbershop", icon: Scissors },
-    playstation: { label: "Play Station", icon: Gamepad2 },
-    fitness: { label: "Fitness", icon: Dumbbell },
-    laundry: { label: "Laundry", icon: Shirt },
-    toko: { label: "Toko PRIMKOPPOL", icon: Store },
-    coffe_latar: { label: "Coffe Latar", icon: UtensilsCrossed },
-    resto: { label: "Resto & Cafe", icon: UtensilsCrossed },
-};
-
-const PERIODS = [
-    { value: "today", label: "Hari Ini" },
-    { value: "week", label: "Minggu Ini" },
-    { value: "month", label: "Bulan Ini" },
-    { value: "year", label: "Tahun Ini" },
-    { value: "custom", label: "Kustom..." },
-];
-
-const METHOD_LABEL: Record<string, string> = {
-    cash: "Tunai",
-    qris: "QRIS",
-    salary_cut: "Potong Gaji",
-    lainnya: "Lainnya",
-};
-
-const OPS_PAYMENT_METHODS = [
-    { value: "cash", label: "Tunai" },
-    { value: "qris", label: "QRIS" },
-    { value: "lainnya", label: "Lainnya" },
-] as const;
-
-// Jenis pengeluaran → kategori CB. Sinkron OPS_EXPENSE_CATEGORIES (constants/units).
-// operational masuk beban laba; hpp_toko diakui via HPP penjualan; belanja_aset = capex.
-const OPS_EXPENSE_CATEGORY_OPTIONS = [
-    { value: "operational", label: "Operasional (Beban Unit)" },
-    { value: "hpp_toko", label: "Belanja Barang / Bahan Dagangan" },
-    { value: "belanja_aset", label: "Belanja Aset / Peralatan" },
-] as const;
-
-const EXPENSE_CATEGORY_BADGE: Record<string, string> = {
-    hpp_toko: "Barang Dagangan",
-    belanja_aset: "Aset / Capex",
-};
-
-// ── Types ───────────────────────────────────────────────────────────────────
-interface LaporanTransaction {
-    id: string;
-    date: string;
-    no: string;
-    description: string;
-    memberName: string | null;
-    memberNrp: string | null;
-    paymentMethod: string;
-    amount: number;
-    status: string;
-    type: string;
-    vehiclePlate: string | null;
-}
-
-interface LaporanSummary {
-    totalPendapatan: number;
-    totalTransaksi: number;
-    tunai: number;
-    qris: number;
-    potongGaji: number;
-    dineIn: number;
-    takeaway: number;
-    counter: number;
-    dineInCount: number;
-    takeawayCount: number;
-    counterCount: number;
-    takeawaySurchargeTotal: number;
-    totalPengeluaran: number;
-    totalPembelianStok: number; // kategori hpp_toko — diakui via HPP, bukan beban laba
-    totalBelanjaAset: number;   // kategori belanja_aset — capex
-    totalPemasukan: number;
-    potonganSHUMember: number;
-    jumlahCuciAnggota: number;
-    shuPerCuci: number;
-    laba: number;
-    totalHPP: number;
-    totalWriteOff: number;
-    netProfit: number;
-}
-
-interface ProductProfitRow {
-    productId: number;
-    name: string;
-    qty: number;
-    omzet: number;
-    hpp: number;
-    laba: number;
-    margin: number;
-}
-
-interface PaginationInfo {
-    page: number;
-    perPage: number;
-    total: number;
-    totalPages: number;
-}
-
-interface OperationalExpense {
-    id: number;
-    date: string;
-    transactionNo: string;
-    description: string;
-    amount: number;
-    receiptImagePath?: string | null;
-    paymentMethod?: string | null;
-    category?: string | null;
-}
-
-interface LaporanData {
-    unitType: string;
-    unitSlug: string;
-    periodLabel: string;
-    dateFrom: string;
-    dateTo: string;
-    summary: LaporanSummary;
-    transactions: LaporanTransaction[];
-    pagination: PaginationInfo;
-    operationalExpenses: OperationalExpense[];
-    operationalIncomes: OperationalExpense[]; // Same shape as expense
-    productProfit?: ProductProfitRow[]; // Laba per produk (harga jual − HPP), unit ber-StoreSale saja
-}
-
+// Konstanta, tipe, dan dialog dipindah ke _constants.tsx / _types.ts /
+// _components/laporan-dialogs.tsx; export Excel ke _lib/export-excel.ts (ter-unit-test).
 // ── Page Component ──────────────────────────────────────────────────────────
 export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug: string }> }) {
     const { user } = useAuth();
@@ -709,244 +572,12 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
         try {
             const allData = await fetchAllData();
             if (!allData) return;
-
             const XLSX = await import("xlsx");
-
-            // ── Number format helper for IDR in Excel ──────────────────────
-            const fmtIDR = '"Rp"#,##0';
-
-            const orgHeader = "PRIMKOPPOL RESOR LUMAJANG";
-            const unitHeader = `UNIT ${unitInfo.label.toUpperCase()}`;
-            const periodHeader = `Periode: ${allData.periodLabel}`;
-
-            // ── Sheet 1: Transaksi Penjualan (POS) ─────────────────────────
-            const txCols = isCuciMobil
-                ? ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Plat Nomor", "Anggota/Pelanggan", "Metode", "Nominal", "Status"]
-                : ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Anggota/Pelanggan", "Metode", "Nominal", "Status"];
-
-            const allTxForExport = allData.transactions.filter(tx => methodFilters.has(tx.paymentMethod));
-
-            const txRows: any[][] = [
-                [orgHeader],
-                [unitHeader],
-                ["LAPORAN TRANSAKSI PENJUALAN"],
-                [periodHeader],
-                [],
-                txCols,
-            ];
-
-            allTxForExport.forEach((tx, i) => {
-                const row: any[] = [
-                    i + 1,
-                    new Date(tx.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
-                    tx.no,
-                    tx.description,
-                ];
-                if (isCuciMobil) row.push(tx.vehiclePlate || "-");
-                row.push(
-                    tx.memberName || "-",
-                    METHOD_LABEL[tx.paymentMethod] || tx.paymentMethod,
-                    { v: tx.amount, t: "n", z: fmtIDR },
-                    tx.status === "completed" ? "Selesai" : tx.status,
-                );
-                txRows.push(row);
+            const { wb, filename, txCount, expCount, incCount } = buildLaporanExcel({
+                XLSX, allData, unitLabel: unitInfo.label, isCuciMobil, usesStoreSales, methodFilters,
             });
-
-            const txColWidths = isCuciMobil
-                ? [5, 14, 24, 30, 14, 22, 12, 18, 10]
-                : [5, 14, 24, 30, 22, 12, 18, 10];
-
-            const ws1 = XLSX.utils.aoa_to_sheet(txRows);
-            ws1["!cols"] = txColWidths.map(w => ({ wch: w }));
-            // Merge org header across all columns
-            const mergeCount = txCols.length - 1;
-            ws1["!merges"] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: mergeCount } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: mergeCount } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: mergeCount } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: mergeCount } },
-            ];
-
-            // ── Sheet 2: Pengeluaran Operasional ──────────────────────────
-            const expData = allData.operationalExpenses || [];
-            const expRows: any[][] = [
-                [orgHeader],
-                [unitHeader],
-                ["LAPORAN PENGELUARAN OPERASIONAL"],
-                [periodHeader],
-                [],
-                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Jenis", "Metode", "Nominal"],
-            ];
-
-            expData.forEach((exp, i) => {
-                expRows.push([
-                    i + 1,
-                    new Date(exp.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
-                    exp.transactionNo,
-                    exp.description,
-                    exp.category === "hpp_toko" ? "Belanja Barang"
-                        : exp.category === "belanja_aset" ? "Belanja Aset"
-                        : "Operasional",
-                    METHOD_LABEL[exp.paymentMethod || "cash"] || "Tunai",
-                    { v: exp.amount, t: "n", z: fmtIDR },
-                ]);
-            });
-            // Total row
-            const totalExpense = expData.reduce((s, e) => s + e.amount, 0);
-            expRows.push([]);
-            expRows.push(["", "", "", "TOTAL PENGELUARAN (SEMUA JENIS)", "", "", { v: totalExpense, t: "n", z: fmtIDR }]);
-
-            const ws2 = XLSX.utils.aoa_to_sheet(expRows);
-            ws2["!cols"] = [5, 14, 26, 35, 16, 12, 18].map(w => ({ wch: w }));
-            ws2["!merges"] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
-            ];
-
-            // ── Sheet 3: Pemasukan Operasional ────────────────────────────
-            const incData = allData.operationalIncomes || [];
-            const incRows: any[][] = [
-                [orgHeader],
-                [unitHeader],
-                ["LAPORAN PEMASUKAN OPERASIONAL"],
-                [periodHeader],
-                [],
-                ["No.", "Tanggal", "No. Transaksi", "Keterangan", "Metode", "Nominal"],
-            ];
-
-            incData.forEach((inc, i) => {
-                incRows.push([
-                    i + 1,
-                    new Date(inc.date).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }),
-                    inc.transactionNo,
-                    inc.description,
-                    METHOD_LABEL[inc.paymentMethod || "cash"] || "Tunai",
-                    { v: inc.amount, t: "n", z: fmtIDR },
-                ]);
-            });
-            const totalIncome = incData.reduce((s, e) => s + e.amount, 0);
-            incRows.push([]);
-            incRows.push(["", "", "", "TOTAL PEMASUKAN OPERASIONAL", "", { v: totalIncome, t: "n", z: fmtIDR }]);
-
-            const ws3 = XLSX.utils.aoa_to_sheet(incRows);
-            ws3["!cols"] = [5, 14, 26, 35, 12, 18].map(w => ({ wch: w }));
-            ws3["!merges"] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
-            ];
-
-            // ── Sheet 4: Ringkasan Keuangan ────────────────────────────────
-            const summaryRows: any[][] = [
-                [orgHeader],
-                [unitHeader],
-                ["RINGKASAN KEUANGAN"],
-                [periodHeader],
-                [],
-                ["Keterangan", "", "Nominal"],
-            ];
-
-            if (isCuciMobil) {
-                const cmBagiKaryawan = Math.floor(allData.summary.totalPendapatan * 0.5);
-                const cmBagianKoperasiKotor = allData.summary.totalPendapatan - cmBagiKaryawan;
-                const cmPotonganSHU = allData.summary.potonganSHUMember;
-                const cmLabaBersih = cmBagianKoperasiKotor - allData.summary.totalPengeluaran - cmPotonganSHU + allData.summary.totalPemasukan;
-
-                summaryRows.push(
-                    ["Total Pendapatan Kotor (Penjualan)", "", { v: allData.summary.totalPendapatan, t: "n", z: fmtIDR }],
-                    ["  ├ Tunai", "", { v: allData.summary.tunai, t: "n", z: fmtIDR }],
-                    ["  ├ QRIS", "", { v: allData.summary.qris, t: "n", z: fmtIDR }],
-                    ["  └ Potong Gaji", "", { v: allData.summary.potongGaji, t: "n", z: fmtIDR }],
-                    ["Bagi Hasil Karyawan (50%)", "", { v: -cmBagiKaryawan, t: "n", z: fmtIDR }],
-                    ["Bagian Koperasi (Kotor)", "", { v: cmBagianKoperasiKotor, t: "n", z: fmtIDR }],
-                );
-                if (allData.summary.totalPemasukan > 0) {
-                    summaryRows.push(["Pemasukan Operasional", "", { v: allData.summary.totalPemasukan, t: "n", z: fmtIDR }]);
-                }
-                summaryRows.push(["Total Pengeluaran Operasional", "", { v: -allData.summary.totalPengeluaran, t: "n", z: fmtIDR }]);
-                if (cmPotonganSHU > 0) {
-                    summaryRows.push([`Potongan SHU Langsung (${allData.summary.jumlahCuciAnggota} cuci × Rp${allData.summary.shuPerCuci.toLocaleString("id-ID")})`, "", { v: -cmPotonganSHU, t: "n", z: fmtIDR }]);
-                }
-                summaryRows.push(
-                    [],
-                    ["LABA BERSIH KOPERASI", "", { v: cmLabaBersih, t: "n", z: fmtIDR }],
-                );
-            } else {
-                summaryRows.push(
-                    ["Total Pendapatan (Penjualan)", "", { v: allData.summary.totalPendapatan, t: "n", z: fmtIDR }],
-                );
-                if (usesStoreSales && allData.summary.totalHPP > 0) {
-                    summaryRows.push(["HPP (Harga Pokok Penjualan)", "", { v: -allData.summary.totalHPP, t: "n", z: fmtIDR }]);
-                }
-                if (usesStoreSales && allData.summary.totalWriteOff > 0) {
-                    summaryRows.push(["Write-off Stok (Rusak/Kedaluwarsa)", "", { v: -allData.summary.totalWriteOff, t: "n", z: fmtIDR }]);
-                }
-                summaryRows.push(
-                    ["Total Pengeluaran Operasional", "", { v: -allData.summary.totalPengeluaran, t: "n", z: fmtIDR }],
-                );
-                if (allData.summary.totalPemasukan > 0) {
-                    summaryRows.push(["Total Pemasukan Operasional", "", { v: allData.summary.totalPemasukan, t: "n", z: fmtIDR }]);
-                }
-                summaryRows.push(
-                    [],
-                    ["LABA BERSIH", "", { v: usesStoreSales ? allData.summary.netProfit : allData.summary.laba, t: "n", z: fmtIDR }],
-                );
-            }
-
-            const ws4 = XLSX.utils.aoa_to_sheet(summaryRows);
-            ws4["!cols"] = [{ wch: 40 }, { wch: 5 }, { wch: 20 }];
-            ws4["!merges"] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
-            ];
-
-            // ── Build workbook with all sheets ─────────────────────────────
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws1, "Transaksi Penjualan");
-            if (expData.length > 0) XLSX.utils.book_append_sheet(wb, ws2, "Pengeluaran Operasional");
-            if (incData.length > 0) XLSX.utils.book_append_sheet(wb, ws3, "Pemasukan Operasional");
-            XLSX.utils.book_append_sheet(wb, ws4, "Ringkasan Keuangan");
-
-            // ── Sheet 5: Laba per Produk (harga jual − HPP) — unit ber-StoreSale ──
-            if (usesStoreSales && allData.productProfit && allData.productProfit.length > 0) {
-                // Sanitasi formula injection: nama produk bisa diawali = + @ -
-                const safe = (s: string) => ( /^[=+@-]/.test(s) ? `'${s}` : s);
-                const ppTotals = allData.productProfit.reduce(
-                    (acc, r) => ({ qty: acc.qty + r.qty, omzet: acc.omzet + r.omzet, hpp: acc.hpp + r.hpp, laba: acc.laba + r.laba }),
-                    { qty: 0, omzet: 0, hpp: 0, laba: 0 },
-                );
-                const ppRows: any[][] = [
-                    [orgHeader],
-                    [unitHeader],
-                    ["LABA PER PRODUK (HARGA JUAL − HPP)"],
-                    [periodHeader],
-                    [],
-                    ["Produk", "Qty Terjual", "Omzet (Harga Jual)", "HPP", "Laba", "Margin %"],
-                    ...allData.productProfit.map((r) => [
-                        safe(r.name),
-                        r.qty,
-                        { v: r.omzet, t: "n", z: fmtIDR },
-                        { v: r.hpp, t: "n", z: fmtIDR },
-                        { v: r.laba, t: "n", z: fmtIDR },
-                        { v: +(r.margin * 100).toFixed(2), t: "n", z: "0.00" },
-                    ]),
-                    [],
-                    ["TOTAL", ppTotals.qty, { v: ppTotals.omzet, t: "n", z: fmtIDR }, { v: ppTotals.hpp, t: "n", z: fmtIDR }, { v: ppTotals.laba, t: "n", z: fmtIDR }],
-                ];
-                const ws5 = XLSX.utils.aoa_to_sheet(ppRows);
-                ws5["!cols"] = [{ wch: 32 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 18 }, { wch: 10 }];
-                XLSX.utils.book_append_sheet(wb, ws5, "Laba per Produk");
-            }
-
-            const safeName = unitInfo.label.replace(/[^a-zA-Z0-9]/g, "_");
-            XLSX.writeFile(wb, `Laporan_${safeName}_${allData.periodLabel}.xlsx`);
-
-            toast.success(`Excel berhasil diexport (${allTxForExport.length} transaksi, ${expData.length} pengeluaran, ${incData.length} pemasukan)`);
+            XLSX.writeFile(wb, filename);
+            toast.success(`Excel berhasil diexport (${txCount} transaksi, ${expCount} pengeluaran, ${incCount} pemasukan)`);
         } catch (err) {
             console.error("Excel export error:", err);
             toast.error("Gagal export Excel");
@@ -2267,452 +1898,43 @@ export default function LaporanUnitPage({ params }: { params: Promise<{ unitSlug
                 </div>
             </div>
 
-            {/* ── Dialog Catat Pengeluaran ──────────────────────────────────── */}
-            <Dialog open={showExpenseDialog} onOpenChange={(open) => { setShowExpenseDialog(open); if (!open) clearExpenseFile(); }}>
-                <DialogContent className="sm:max-w-[460px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <TrendingDown className="h-5 w-5 text-red-500" />
-                            {editExpenseId ? "Ubah Pengeluaran Operasional" : "Catat Pengeluaran Operasional"}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Catat pengeluaran unit seperti belanja sabun, peralatan, bahan baku, dll.
-                            Akan langsung mendebit kas unit ini.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="exp-amount">Nominal Pengeluaran (Rp) *</Label>
-                            <Input
-                                id="exp-amount"
-                                type="number"
-                                placeholder="0"
-                                className="text-right text-lg font-bold"
-                                value={expenseAmount}
-                                onChange={(e) => setExpenseAmount(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="exp-desc">Keterangan Pengeluaran *</Label>
-                            <Textarea
-                                id="exp-desc"
-                                placeholder="Misal: Beli sabun cuci, kain lap, sikat ban, dll."
-                                className="resize-none"
-                                rows={3}
-                                value={expenseDesc}
-                                onChange={(e) => setExpenseDesc(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="exp-date">Tanggal Pengeluaran</Label>
-                            <Input
-                                id="exp-date"
-                                type="date"
-                                value={expenseDate}
-                                onChange={(e) => setExpenseDate(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Metode Pembayaran</Label>
-                            <Select value={expensePaymentMethod} onValueChange={setExpensePaymentMethod}>
-                                <SelectTrigger><SelectValue placeholder="Pilih metode" /></SelectTrigger>
-                                <SelectContent>
-                                    {OPS_PAYMENT_METHODS.map(m => (
-                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Jenis Pengeluaran</Label>
-                            <Select value={expenseCategory} onValueChange={setExpenseCategory}>
-                                <SelectTrigger><SelectValue placeholder="Pilih jenis" /></SelectTrigger>
-                                <SelectContent>
-                                    {OPS_EXPENSE_CATEGORY_OPTIONS.map(c => (
-                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <p className="text-[10px] text-muted-foreground">
-                                Belanja barang dagangan/bahan → "Belanja Barang" (dihitung via HPP, bukan beban dobel). Peralatan &amp; renovasi → "Belanja Aset".
-                            </p>
-                        </div>
-
-                        {/* Upload Foto Bukti */}
-                        <div className="space-y-2">
-                            <Label>Foto Bukti / Struk (Opsional, maks. 2MB, JPG/PNG/WebP)</Label>
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="hidden"
-                                ref={expenseFileInputRef}
-                                onChange={handleExpenseFileChange}
-                            />
-                            {expenseReceiptPreview ? (
-                                <div className="relative rounded-lg border border-dashed border-red-200 overflow-hidden">
-                                    <img
-                                        src={expenseReceiptPreview}
-                                        alt="Preview bukti"
-                                        className="w-full h-36 object-cover"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={clearExpenseFile}
-                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black/80"
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </button>
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
-                                        {expenseReceiptFile?.name}
-                                    </div>
-                                </div>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => expenseFileInputRef.current?.click()}
-                                    className="w-full h-24 border-2 border-dashed border-red-200 rounded-lg flex flex-col items-center justify-center gap-1 text-red-400 hover:border-red-400 hover:text-red-600 hover:bg-red-50/50 transition-colors"
-                                >
-                                    <ImagePlus className="h-6 w-6" />
-                                    <span className="text-xs">Klik untuk unggah foto struk / nota</span>
-                                </button>
-                            )}
-                        </div>
-
-                        <Separator />
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                            ⚠️ Pengeluaran ini akan langsung mendebit akun Kas Unit <strong>{unitInfo.label}</strong> tanpa memerlukan persetujuan tambahan.
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => { setShowExpenseDialog(false); clearExpenseFile(); }}>Batal</Button>
-                        <Button
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                            onClick={handleSaveExpense}
-                            disabled={isSavingExpense || !expenseAmount || !expenseDesc}
-                        >
-                            {isSavingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                            {editExpenseId ? "Simpan Perubahan" : "Simpan Pengeluaran"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ── Dialog Catat Pemasukan ────────────────────────────────────── */}
-            <Dialog open={showIncomeDialog} onOpenChange={(open) => { setShowIncomeDialog(open); if (!open) clearIncomeFile(); }}>
-                <DialogContent className="sm:max-w-[460px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-emerald-500" />
-                            {editIncomeId
-                                ? "Ubah Pemasukan Operasional"
-                                : incomeJenis === "customer"
-                                    ? "Catat Transaksi Customer"
-                                    : "Catat Pemasukan Operasional"}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {editIncomeId
-                                ? "Edit data pemasukan operasional unit ini."
-                                : incomeJenis === "customer"
-                                    ? "Catat penjualan ke customer sebagai UnitTransaction — masuk riwayat transaksi, SHU per-unit, dan poin jasa anggota (jika anggota dipilih)."
-                                    : "Catat pemasukan unit di luar transaksi POS kasir, misalnya pemasukan dari transaksi lama, sewa lahan, donasi, dll. Akan langsung mengkredit kas unit ini."}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4 py-2">
-                        {/* Jenis Pemasukan — disabled in edit mode (edit is operasional-only) */}
-                        <div className="space-y-2">
-                            <Label>Jenis Pemasukan</Label>
-                            <Select
-                                value={incomeJenis}
-                                onValueChange={(v) => setIncomeJenis(v as "operasional" | "customer")}
-                                disabled={editIncomeId !== null}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="operasional">Pemasukan Operasional (sewa/dll)</SelectItem>
-                                    <SelectItem value="customer">Transaksi Customer (penjualan)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {incomeJenis === "customer" && (
-                                <p className="text-xs text-muted-foreground">
-                                    Dicut sebagai UnitTransaction → masuk riwayat transaksi + SHU per-unit + poin jasa anggota.
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Anggota (opsional, hanya saat Transaksi Customer) — pola member-picker reuse dari kasir/page.tsx */}
-                        {incomeJenis === "customer" && (
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">
-                                    <User className="h-3.5 w-3.5" />
-                                    Anggota (opsional — kosongkan jika walk-in)
-                                </Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Cari NRP atau Nama anggota..."
-                                        value={incomeMemberQuery}
-                                        onChange={(e) => setIncomeMemberQuery(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchIncomeMember(); } }}
-                                    />
-                                    <Button type="button" variant="outline" onClick={searchIncomeMember} disabled={isSearchingIncomeMember}>
-                                        {isSearchingIncomeMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                    </Button>
-                                </div>
-                                {incomeMemberResults.length > 0 && (
-                                    <div className="max-h-[180px] overflow-y-auto border rounded-md">
-                                        {incomeMemberResults.map((m) => (
-                                            <div
-                                                key={m.id}
-                                                className={`flex items-center justify-between p-2.5 cursor-pointer hover:bg-muted/50 ${incomeMemberPicked?.id === m.id ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}
-                                                onClick={() => {
-                                                    setIncomeMemberPicked(m);
-                                                    setIncomeMemberId(m.id);
-                                                    setIncomeMemberQuery("");
-                                                    setIncomeMemberResults([]);
-                                                }}
-                                            >
-                                                <div>
-                                                    <p className="font-medium text-sm">{m.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{m.memberNo} {m.nrp ? `· NRP: ${m.nrp}` : ""}</p>
-                                                </div>
-                                                {incomeMemberPicked?.id === m.id && <Badge>Dipilih</Badge>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                {incomeMemberPicked && (
-                                    <div className="flex items-center justify-between p-2.5 border rounded-lg bg-muted/30">
-                                        <div>
-                                            <p className="font-medium text-sm">{incomeMemberPicked.name}</p>
-                                            <p className="text-xs text-muted-foreground">NRP: {incomeMemberPicked.nrp || "-"}</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setIncomeMemberPicked(null); setIncomeMemberId(null); }}
-                                            className="text-muted-foreground hover:text-red-600"
-                                            aria-label="Hapus pilihan anggota"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            <Label htmlFor="inc-amount">Nominal Pemasukan (Rp) *</Label>
-                            <Input
-                                id="inc-amount"
-                                type="number"
-                                placeholder="0"
-                                className="text-right text-lg font-bold"
-                                value={incomeAmount}
-                                onChange={(e) => setIncomeAmount(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="inc-desc">Keterangan Pemasukan *</Label>
-                            <Textarea
-                                id="inc-desc"
-                                placeholder="Misal: Pemasukan sewa tempat, transaksi lama belum tercatat, dll."
-                                className="resize-none"
-                                rows={3}
-                                value={incomeDesc}
-                                onChange={(e) => setIncomeDesc(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="inc-date">Tanggal Pemasukan</Label>
-                            <Input
-                                id="inc-date"
-                                type="date"
-                                value={incomeDate}
-                                onChange={(e) => setIncomeDate(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Metode Pembayaran</Label>
-                            <Select value={incomePaymentMethod} onValueChange={setIncomePaymentMethod}>
-                                <SelectTrigger><SelectValue placeholder="Pilih metode" /></SelectTrigger>
-                                <SelectContent>
-                                    {OPS_PAYMENT_METHODS.map(m => (
-                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Upload Foto Bukti */}
-                        <div className="space-y-2">
-                            <Label>Foto Bukti (Opsional, maks. 2MB, JPG/PNG/WebP)</Label>
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="hidden"
-                                ref={incomeFileInputRef}
-                                onChange={handleIncomeFileChange}
-                            />
-                            {incomeReceiptPreview ? (
-                                <div className="relative rounded-lg border border-dashed border-emerald-200 overflow-hidden">
-                                    <img
-                                        src={incomeReceiptPreview}
-                                        alt="Preview bukti"
-                                        className="w-full h-36 object-cover"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={clearIncomeFile}
-                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black/80"
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </button>
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-2 py-1 truncate">
-                                        {incomeReceiptFile?.name}
-                                    </div>
-                                </div>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => incomeFileInputRef.current?.click()}
-                                    className="w-full h-24 border-2 border-dashed border-emerald-200 rounded-lg flex flex-col items-center justify-center gap-1 text-emerald-400 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50/50 transition-colors"
-                                >
-                                    <ImagePlus className="h-6 w-6" />
-                                    <span className="text-xs">Klik untuk unggah foto bukti pemasukan</span>
-                                </button>
-                            )}
-                        </div>
-
-                        <Separator />
-                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
-                            {incomeJenis === "customer" ? (
-                                <>🧾 Transaksi customer akan dicatat sebagai <strong>UnitTransaction</strong> dan masuk riwayat transaksi unit <strong>{unitInfo.label}</strong>{incomeMemberPicked ? " serta poin jasa anggota" : ""}.</>
-                            ) : (
-                                <>💰 Pemasukan ini akan langsung mengkredit akun Kas Unit <strong>{unitInfo.label}</strong> tanpa memerlukan persetujuan tambahan.</>
-                            )}
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => { setShowIncomeDialog(false); clearIncomeFile(); }}>Batal</Button>
-                        <Button
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={handleSaveIncome}
-                            disabled={isSavingIncome || !incomeAmount || !incomeDesc}
-                        >
-                            {isSavingIncome ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                            {editIncomeId ? "Simpan Perubahan" : "Simpan Pemasukan"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ── Dialog Konfirmasi Hapus ────────────────────────────────── */}
-            <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-red-600">
-                            <AlertCircle className="h-5 w-5" />
-                            Konfirmasi Hapus
-                        </DialogTitle>
-                        <DialogDescription>
-                            {deleteTarget?.type === "income"
-                                ? "Pemasukan ini akan dihapus permanen beserta bukti fotonya. Saldo kas akan otomatis terkalkulasi ulang."
-                                : "Pengeluaran ini akan dihapus permanen beserta bukti fotonya. Saldo kas akan otomatis terkalkulasi ulang."}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-3 py-2">
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
-                            Tindakan ini tidak dapat dibatalkan. Data yang dihapus akan dicatat di log audit.
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="delete-reason">Alasan Penghapusan *</Label>
-                            <Textarea
-                                id="delete-reason"
-                                placeholder="Wajib isi alasan penghapusan..."
-                                className="resize-none"
-                                rows={2}
-                                value={deleteReason}
-                                onChange={(e) => setDeleteReason(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
-                        <Button
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                            onClick={confirmDelete}
-                            disabled={isDeleting || !deleteReason.trim()}
-                        >
-                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Ya, Hapus
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Transaction Detail Modal */}
-            <Dialog open={!!selectedTx} onOpenChange={(open) => { if (!open) setSelectedTx(null); }}>
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle className="text-base">Detail Transaksi</DialogTitle>
-                    </DialogHeader>
-                    {selectedTx && (
-                        <div className="space-y-3 text-sm">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <p className="text-muted-foreground text-xs">No. Transaksi</p>
-                                    <p className="font-mono font-medium">{selectedTx.no}</p>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground text-xs">Tanggal</p>
-                                    <p>{new Date(selectedTx.date).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</p>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground text-xs">Tipe</p>
-                                    <Badge variant="outline">{selectedTx.type === "store_sale" ? "Penjualan Toko" : "Transaksi Unit"}</Badge>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground text-xs">Metode Bayar</p>
-                                    <Badge variant="outline" className={
-                                        selectedTx.paymentMethod === "cash" ? "border-emerald-300 text-emerald-700" :
-                                        selectedTx.paymentMethod === "qris" ? "border-blue-300 text-blue-700" :
-                                        "border-indigo-300 text-indigo-700"
-                                    }>
-                                        {METHOD_LABEL[selectedTx.paymentMethod] || selectedTx.paymentMethod}
-                                    </Badge>
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground text-xs">Pelanggan</p>
-                                    <p className="font-medium">{selectedTx.memberName || "Walk-In"}</p>
-                                    {selectedTx.memberNrp && <p className="text-xs text-muted-foreground">NRP: {selectedTx.memberNrp}</p>}
-                                </div>
-                                <div>
-                                    <p className="text-muted-foreground text-xs">Status</p>
-                                    <Badge variant={selectedTx.status === "completed" ? "default" : "destructive"}>
-                                        {selectedTx.status === "completed" ? "Selesai" : selectedTx.status === "voided" ? "Dibatalkan" : selectedTx.status}
-                                    </Badge>
-                                </div>
-                            </div>
-                            <Separator />
-                            <div>
-                                <p className="text-muted-foreground text-xs mb-1">Deskripsi</p>
-                                <p className="whitespace-pre-wrap break-words">{selectedTx.description}</p>
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground font-medium">Total</span>
-                                <span className="text-xl font-bold">{formatCurrency(selectedTx.amount)}</span>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+            {/* ── Dialogs (dipindah ke _components/laporan-dialogs.tsx) ── */}
+            <ExpenseDialog
+                showExpenseDialog={showExpenseDialog} setShowExpenseDialog={setShowExpenseDialog}
+                clearExpenseFile={clearExpenseFile} editExpenseId={editExpenseId}
+                expenseAmount={expenseAmount} setExpenseAmount={setExpenseAmount}
+                expenseDesc={expenseDesc} setExpenseDesc={setExpenseDesc}
+                expenseDate={expenseDate} setExpenseDate={setExpenseDate}
+                expensePaymentMethod={expensePaymentMethod} setExpensePaymentMethod={setExpensePaymentMethod}
+                expenseCategory={expenseCategory} setExpenseCategory={setExpenseCategory}
+                expenseFileInputRef={expenseFileInputRef} handleExpenseFileChange={handleExpenseFileChange}
+                expenseReceiptPreview={expenseReceiptPreview} expenseReceiptFile={expenseReceiptFile}
+                unitInfo={unitInfo} handleSaveExpense={handleSaveExpense} isSavingExpense={isSavingExpense}
+            />
+            <IncomeDialog
+                showIncomeDialog={showIncomeDialog} setShowIncomeDialog={setShowIncomeDialog}
+                clearIncomeFile={clearIncomeFile} editIncomeId={editIncomeId}
+                incomeJenis={incomeJenis} setIncomeJenis={setIncomeJenis}
+                incomeMemberQuery={incomeMemberQuery} setIncomeMemberQuery={setIncomeMemberQuery}
+                searchIncomeMember={searchIncomeMember} isSearchingIncomeMember={isSearchingIncomeMember}
+                incomeMemberResults={incomeMemberResults} incomeMemberPicked={incomeMemberPicked}
+                setIncomeMemberPicked={setIncomeMemberPicked} setIncomeMemberId={setIncomeMemberId}
+                setIncomeMemberResults={setIncomeMemberResults}
+                incomeAmount={incomeAmount} setIncomeAmount={setIncomeAmount}
+                incomeDesc={incomeDesc} setIncomeDesc={setIncomeDesc}
+                incomeDate={incomeDate} setIncomeDate={setIncomeDate}
+                incomePaymentMethod={incomePaymentMethod} setIncomePaymentMethod={setIncomePaymentMethod}
+                incomeFileInputRef={incomeFileInputRef} handleIncomeFileChange={handleIncomeFileChange}
+                incomeReceiptPreview={incomeReceiptPreview} incomeReceiptFile={incomeReceiptFile}
+                unitInfo={unitInfo} handleSaveIncome={handleSaveIncome} isSavingIncome={isSavingIncome}
+            />
+            <DeleteConfirmDialog
+                deleteTarget={deleteTarget} setDeleteTarget={setDeleteTarget}
+                deleteReason={deleteReason} setDeleteReason={setDeleteReason}
+                isDeleting={isDeleting} confirmDelete={confirmDelete}
+            />
+            <TransactionDetailDialog selectedTx={selectedTx} setSelectedTx={setSelectedTx} />
         </div>
     );
 }
 
-function formatUnitName(slug: string) {
-    return slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-}
