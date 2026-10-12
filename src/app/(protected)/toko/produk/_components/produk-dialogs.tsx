@@ -5,28 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/constants";
-import { Loader2, PlusCircle, X, Package, ImagePlus, ChefHat, Layers, AlertCircle, Check, Tag, Plus, Pencil, Trash2, BookOpen, Camera } from "lucide-react";
+import { Loader2, X, ImagePlus, Check, Tag, Plus, Pencil, Trash2, BookOpen, Camera } from "lucide-react";
 import type { IngredientOption, Product } from "../_types";
 
 // Dipindah VERBATIM dari page.tsx (2026-10-11). Props memakai nama identifier asli
 // agar JSX tidak berubah satu karakter pun.
 
-export function ProdukDialogs({showBulkDialog, setShowBulkDialog, filteredProducts, setImagePreview, bulkAction, setBulkAction, bulkValue, setBulkValue, bulkStockGdg, setBulkStockGdg, bulkStockToko, setBulkStockToko, bulkCategory, setBulkCategory, bulkUnit, setBulkUnit, isBulkProcessing, executeBulk, getBulkActionLabel, showCategoryDialog, setShowCategoryDialog, categoryList, editingCategory, setEditingCategory, newCategoryName, setNewCategoryName, newCategoryInput, setNewCategoryInput, isCategoryProcessing, isFnB, handleCreateCategory, handleRenameCategory, handleDeleteCategory, categories, showResultDialog, setShowResultDialog, resultDialogTitle, setResultDialogTitle, resultDialogContent, setResultDialogContent, showRecipeDialog, setShowRecipeDialog, recipeProductName, recipeItems, setRecipeItems, isRecipeSaving, isRecipeLoading, ingredientOptions, addRecipeRow, removeRecipeRow, updateRecipeRow, calcRecipeTotal, saveRecipe, showImageDialog, setShowImageDialog, imageProductName, imagePreview, imageFile, setImageFile, isImageSaving, imageFileInputRef, handleImageFileSelect, removeImagePreview, saveImage, selectedIds, products, unitList, unitType, isManualPriceCategory}: {
+export function ProdukDialogs({showBulkDialog, setShowBulkDialog, filteredProducts, setImagePreview, bulkAction, bulkValue, setBulkValue, bulkStockGdg, setBulkStockGdg, bulkStockToko, setBulkStockToko, bulkCategory, setBulkCategory, bulkUnit, setBulkUnit, isBulkProcessing, executeBulk, getBulkActionLabel, showCategoryDialog, setShowCategoryDialog, categoryList, editingCategory, setEditingCategory, newCategoryName, setNewCategoryName, newCategoryInput, setNewCategoryInput, isCategoryProcessing, isFnB, handleCreateCategory, handleRenameCategory, handleDeleteCategory, categories, showResultDialog, setShowResultDialog, resultDialogTitle, resultDialogContent, showRecipeDialog, setShowRecipeDialog, recipeProductName, recipeItems, setRecipeItems, isRecipeSaving, isRecipeLoading, ingredientOptions, addRecipeRow, removeRecipeRow, updateRecipeRow, calcRecipeTotal, saveRecipe, showImageDialog, setShowImageDialog, imageProductName, imagePreview, imageFile, setImageFile, isImageSaving, imageFileInputRef, handleImageFileSelect, removeImagePreview, saveImage, selectedIds, products, unitList, unitType, isManualPriceCategory}: {
     showBulkDialog: boolean;
     setShowBulkDialog: (v: boolean) => void;
     bulkAction: string;
-    setBulkAction: (v: string) => void;
     bulkValue: string;
     setBulkValue: (v: string) => void;
     bulkStockGdg: string;
@@ -58,9 +51,7 @@ export function ProdukDialogs({showBulkDialog, setShowBulkDialog, filteredProduc
     showResultDialog: boolean;
     setShowResultDialog: (v: boolean) => void;
     resultDialogTitle: string;
-    setResultDialogTitle: (v: string) => void;
     resultDialogContent: React.ReactNode;
-    setResultDialogContent: (v: React.ReactNode) => void;
     showRecipeDialog: boolean;
     setShowRecipeDialog: (v: boolean) => void;
     recipeProductName: string;

@@ -13,17 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
     Plus, Package, TrendingUp, AlertTriangle, Upload, Download,
     Pencil, Check, X, Loader2, Eye, Trash2, RotateCcw, Search,
     CheckSquare, DollarSign, PackageMinus, Calculator, Copy, Tag, Ruler,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BookOpen,
-    Star, ImagePlus, Camera,
+    Star, Camera,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/constants";
 import { exportToExcel } from "@/lib/export-utils";
@@ -134,13 +130,13 @@ export default function TokoProdukPage() {
     // Recipe state
     const isFnB = !isToko;
     const [showRecipeDialog, setShowRecipeDialog] = React.useState(false);
-    const [recipeProductId, setRecipeProductId] = React.useState<number | null>(null);
-    const [recipeProductName, setRecipeProductName] = React.useState("");
+    const [recipeProductId] = React.useState<number | null>(null);
+    const [recipeProductName] = React.useState("");
     const [recipeItems, setRecipeItems] = React.useState<{ id?: number; ingredientName: string; quantity: string; unit: string; unitCost: string; ingredientProductId?: number | null }[]>([]);
-    const [recipeTotalCost, setRecipeTotalCost] = React.useState(0);
+    const [recipeTotalCost] = React.useState(0);
     const [isRecipeSaving, setIsRecipeSaving] = React.useState(false);
-    const [isRecipeLoading, setIsRecipeLoading] = React.useState(false);
-    const [ingredientOptions, setIngredientOptions] = React.useState<IngredientOption[]>([]);
+    const [isRecipeLoading] = React.useState(false);
+    const [ingredientOptions] = React.useState<IngredientOption[]>([]);
 
     // Image edit state
     const [showImageDialog, setShowImageDialog] = React.useState(false);
@@ -155,39 +151,6 @@ export default function TokoProdukPage() {
     const [quickKeyIds, setQuickKeyIds] = React.useState<number[]>([]);
     const showQuickKeyToggle = ["cafe_lsp", "coffe_latar", "resto_cafe"].includes(unitType);
 
-    const openRecipeDialog = async (product: Product) => {
-        setRecipeProductId(product.id);
-        setRecipeProductName(product.name);
-        setShowRecipeDialog(true);
-        setIsRecipeLoading(true);
-        try {
-            const [recipeRes, ingredientRes] = await Promise.all([
-                fetch(`/api/toko/products/${product.id}/recipe`),
-                fetch(`/api/toko/products?productType=ingredient&unitType=${productUnitType}&perPage=200`),
-            ]);
-            const recipeJson = await recipeRes.json();
-            const ingredientJson = await ingredientRes.json();
-            const ingredients = (ingredientJson.products || ingredientJson.data || []) as IngredientOption[];
-            setIngredientOptions(ingredients);
-
-            if (recipeJson.data && recipeJson.data.length > 0) {
-                setRecipeItems(recipeJson.data.map((r: any) => ({
-                    id: r.id,
-                    ingredientName: r.ingredientName,
-                    quantity: String(r.quantity),
-                    unit: r.unit,
-                    unitCost: String(r.unitCost),
-                    ingredientProductId: r.ingredientProductId || null,
-                })));
-                setRecipeTotalCost(recipeJson.totalCost || 0);
-            } else {
-                setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "", ingredientProductId: null }]);
-                setRecipeTotalCost(0);
-            }
-        } catch {
-            setRecipeItems([{ ingredientName: "", quantity: "", unit: "ml", unitCost: "", ingredientProductId: null }]);
-        } finally { setIsRecipeLoading(false); }
-    };
 
     const addRecipeRow = () => {
         setRecipeItems(prev => [...prev, { ingredientName: "", quantity: "", unit: "ml", unitCost: "", ingredientProductId: null }]);
@@ -1257,7 +1220,6 @@ export default function TokoProdukPage() {
                 showBulkDialog={showBulkDialog}
                 setShowBulkDialog={setShowBulkDialog}
                 bulkAction={bulkAction}
-                setBulkAction={setBulkAction}
                 bulkValue={bulkValue}
                 setBulkValue={setBulkValue}
                 bulkStockGdg={bulkStockGdg}
@@ -1289,9 +1251,7 @@ export default function TokoProdukPage() {
                 showResultDialog={showResultDialog}
                 setShowResultDialog={setShowResultDialog}
                 resultDialogTitle={resultDialogTitle}
-                setResultDialogTitle={setResultDialogTitle}
                 resultDialogContent={resultDialogContent}
-                setResultDialogContent={setResultDialogContent}
                 showRecipeDialog={showRecipeDialog}
                 setShowRecipeDialog={setShowRecipeDialog}
                 recipeProductName={recipeProductName}
