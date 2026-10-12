@@ -50,3 +50,25 @@ jobs:
             echo "::error::Error tsc naik: $COUNT > $TSC_BASELINE. Perbaiki error baru, atau (terakhir) naikkan TSC_BASELINE dengan alasan."
             exit 1
           fi
+
+  eslint-ratchet:
+    name: eslint ratchet (max 1350 problems)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint + ratchet
+        env:
+          LINT_BASELINE: 1350 # `npx eslint src` per 2026-10-11: 875 error + 475 warn
+        run: |
+          npx eslint src --format json > lint.json 2>/dev/null || true
+          COUNT=$(node -e "const d=require('./lint.json');let n=0;for(const f of d)n+=f.errorCount+f.warningCount;console.log(n)")
+          echo "eslint problems: $COUNT (baseline $LINT_BASELINE)"
+          if [ "$COUNT" -gt "$LINT_BASELINE" ]; then
+            echo "::error::Problem eslint naik: $COUNT > $LINT_BASELINE. Perbaiki masalah baru di file yang Anda ubah."
+            exit 1
+          fi

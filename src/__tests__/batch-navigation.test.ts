@@ -71,7 +71,7 @@ describe("Batch Navigation Config", () => {
         const mod = await import("@/lib/constants/navigation");
         const cafeMenuGroup = mod.adminCafeLspNavigation.find((item: any) => item.title === "CAFE & MENU");
         expect(cafeMenuGroup).toBeDefined();
-        // 8 sejak Latar Cafe CMS (commit 2afaaca7) — update angka ini secara
+        // 8 sejak Latar Cafe CMS (2afaaca7) — update angka ini secara
         // SENGAJA saat menambah/menghapus menu nav cafe-lsp.
         expect(cafeMenuGroup.items.length).toBe(8);
     });

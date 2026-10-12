@@ -31,14 +31,21 @@ test.describe("Batch & Expiry — Admin Resto", () => {
         expect(bodyText).toBeTruthy();
     });
 
-    test("admin resto sees Manajemen Batch in sidebar", async ({ page }) => {
+    // Kebijakan "sidebar simplification" (33b1082b, Mei 2026): nav batch/bahan-baku
+    // DIHAPUS dari sidebar resto & cafe-lsp — akses via URL/tombol di Persediaan.
+    // Test lama "sees Manajemen Batch in sidebar" stale dan diganti ini.
+    test("admin resto sidebar does NOT show Manajemen Batch (kebijakan Mei 2026), halaman tetap hidup", async ({ page }) => {
         await login(page, ADMIN_RESTO);
         await page.goto("/dashboard");
         await page.waitForLoadState("networkidle");
 
-        // Look for batch nav link in sidebar
         const batchLink = page.locator('a[href="/resto/batch"]');
-        await expect(batchLink).toBeVisible({ timeout: 5000 });
+        await expect(batchLink).toHaveCount(0);
+
+        // Halaman batch tetap dapat diakses langsung
+        await page.goto("/resto/batch");
+        await page.waitForLoadState("networkidle");
+        expect(page.url()).toContain("/resto/batch");
     });
 });
 
@@ -54,13 +61,17 @@ test.describe("Batch & Expiry — Admin Cafe LSP", () => {
         expect(bodyText).toBeTruthy();
     });
 
-    test("admin cafe_lsp sees Manajemen Batch in sidebar", async ({ page }) => {
+    test("admin cafe_lsp sidebar does NOT show Manajemen Batch (kebijakan Mei 2026), halaman tetap hidup", async ({ page }) => {
         await login(page, ADMIN_CAFE_LSP);
         await page.goto("/dashboard");
         await page.waitForLoadState("networkidle");
 
         const batchLink = page.locator('a[href="/cafe-lsp/batch"]');
-        await expect(batchLink).toBeVisible({ timeout: 5000 });
+        await expect(batchLink).toHaveCount(0);
+
+        await page.goto("/cafe-lsp/batch");
+        await page.waitForLoadState("networkidle");
+        expect(page.url()).toContain("/cafe-lsp/batch");
     });
 });
 
