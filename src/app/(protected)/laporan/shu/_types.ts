@@ -117,3 +117,107 @@ export interface ExpenseGroup {
   amount: number;
   details: { code: string; name: string; amount: number }[];
 }
+
+export interface SHUAllocation {
+    key: string;
+    label: string;
+    percentage: number;
+    amount: number;
+    description: string;
+}
+
+export interface MemberSHU {
+    memberNo: string;
+    name: string;
+    simpananPokok: number;
+    simpananWajib: number;
+    savingsContribution: number;
+    loanContribution: number;
+    totalContribution: number;
+    modalPortion: number;
+    usahaPortion: number;
+    carwashBonus: number;
+    carwashCount: number;
+    shuShare: number;
+}
+
+export interface IncomeExpenseDetail {
+    code: string;
+    name: string;
+    amount: number;
+}
+
+export interface IncomeGroup {
+    key: string;
+    label: string;
+    amount: number;
+    details: { code: string; name: string; amount: number }[];
+}
+
+export interface ExpenseGroupData {
+    key: string;
+    label: string;
+    amount: number;
+    details: { code: string; name: string; amount: number }[];
+}
+
+export interface PaginationMeta {
+    page: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+}
+
+export interface SHUData {
+    totalShu: number;
+    totalIncome: number;
+    totalExpense: number;
+    memberNetIncome: number;
+    nonMemberNetIncome: number;
+    period: string;
+    month: number;
+    periodLabel: string;
+    allocationsMember: SHUAllocation[];
+    allocationsNonMember: SHUAllocation[];
+    incomeDetails: IncomeExpenseDetail[];
+    incomeGroups: IncomeGroup[];
+    spMonthlyBreakdown?: SPMonthlyItem[];
+    expenseDetails: IncomeExpenseDetail[];
+    expenseGroups?: ExpenseGroupData[];
+    memberShu: MemberSHU[];
+    memberSharePercent: number;
+    pagination?: PaginationMeta;
+    unitBreakdown?: UnitBreakdown[];
+    unitGrossProfit?: UnitGrossProfit[];
+}
+
+export interface UnitBreakdown {
+    unitType: string;
+    label: string;
+    category: "store" | "service";
+    revenue: number;
+    expense: number;
+    transactionCount: number;
+    paymentMethodBreakdown: { method: string; label: string; amount: number; count: number }[];
+}
+
+export interface UnitGrossProfit {
+    unitType: string;
+    label: string;
+    omzet: number;
+    hpp: number;
+    labaKotor: number;
+    margin: number;
+    itemCount: number;
+}
+
+export interface AuditTx {
+    date: string;
+    description: string;
+    category: string;
+    type: "income" | "expense";
+    amount: number;
+    paymentMethod: string | null;
+    source: string;
+    referenceNo: string | null;
+}
